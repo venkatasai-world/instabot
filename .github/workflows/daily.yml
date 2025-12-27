@@ -1,0 +1,32 @@
+name: Daily Instagram Bot
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # runs once daily (11:30 AM IST)
+  workflow_dispatch:     # allows manual run
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run Instagram bot
+        env:
+          IG_USERNAME: ${{ secrets.IG_USERNAME }}
+          IG_PASSWORD: ${{ secrets.IG_PASSWORD }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          IG_SESSION: ${{ secrets.IG_SESSION }}
+        run: |
+          python main.py

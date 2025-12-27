@@ -7,4 +7,3 @@ htmlcov/
 .tox/
 docs/_build/
 .env
-session.json

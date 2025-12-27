@@ -1,31 +1,32 @@
 import os
-from dotenv import load_dotenv
+import time
 import sqlite3
 import textwrap
 import requests
+from dotenv import load_dotenv
 from instagrapi import Client
 from PIL import Image, ImageDraw, ImageFont
 import google.generativeai as genai
 
-
 load_dotenv()
-
 
 USERNAME = os.getenv("IG_USERNAME")
 PASSWORD = os.getenv("IG_PASSWORD")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-POSTS_PER_DAY = 1
+POSTS_PER_DAY = 3
+DELAY_BETWEEN_POSTS = 3600  
 DB_NAME = "quotes.db"
 SESSION_FILE = "session.json"
 
 if not USERNAME or not PASSWORD or not GEMINI_API_KEY:
-    raise RuntimeError("❌ Environment variables not loaded. Check .env or Render env settings.")
+    raise RuntimeError("❌ Environment variables missing")
 
-
+# ---------------- GEMINI ----------------
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-2.5-flash")
 
+# ---------------- DATABASE ----------------
 conn = sqlite3.connect(DB_NAME)
 cur = conn.cursor()
 
@@ -39,46 +40,38 @@ CREATE TABLE IF NOT EXISTS quotes (
 """)
 conn.commit()
 
-
-def generate_new_quote():
-    url = "https://zenquotes.io/api/random"
-    data = requests.get(url, timeout=10).json()[0]
+def fetch_quote():
+    data = requests.get("https://zenquotes.io/api/random", timeout=10).json()[0]
     return data["q"].strip(), data["a"].strip()
 
-# ---------- Ensure One Unused Quote ----------
 cur.execute("SELECT COUNT(*) FROM quotes WHERE used=0")
 available = cur.fetchone()[0]
 
 while available < POSTS_PER_DAY:
     try:
-        quote, author = generate_new_quote()
-        cur.execute(
-            "INSERT INTO quotes (quote, author) VALUES (?, ?)",
-            (quote, author)
-        )
+        q, a = fetch_quote()
+        cur.execute("INSERT INTO quotes (quote, author) VALUES (?, ?)", (q, a))
         conn.commit()
         available += 1
-        print("Saved:", quote, "-", author)
     except:
         pass
 
-
+# ---------------- IMAGE ----------------
 def load_font(size):
     try:
         return ImageFont.truetype("arial.ttf", size)
     except:
         return ImageFont.load_default()
 
-def generate_image(quote, author, filename):
+def create_image(quote, author, filename):
     img = Image.new("RGB", (1080, 1080), "black")
     draw = ImageDraw.Draw(img)
 
-    font_q = load_font(60)
-    font_a = load_font(40)
+    q_font = load_font(60)
+    a_font = load_font(40)
 
-    wrapped = textwrap.fill(quote, width=30)
-
-    bbox = draw.multiline_textbbox((0, 0), wrapped, font=font_q)
+    wrapped = textwrap.fill(quote, 30)
+    bbox = draw.multiline_textbbox((0, 0), wrapped, font=q_font)
     w = bbox[2] - bbox[0]
     h = bbox[3] - bbox[1]
 
@@ -86,30 +79,31 @@ def generate_image(quote, author, filename):
         ((1080 - w) / 2, (1080 - h) / 2),
         wrapped,
         fill="white",
-        font=font_q,
+        font=q_font,
         align="center"
     )
 
     author_text = f"- {author}"
-    abox = draw.textbbox((0, 0), author_text, font=font_a)
+    abox = draw.textbbox((0, 0), author_text, font=a_font)
     aw = abox[2] - abox[0]
 
     draw.text(
         ((1080 - aw) / 2, 920),
         author_text,
         fill="white",
-        font=font_a
+        font=a_font
     )
 
     img.save(filename)
 
-
 def generate_caption(quote):
     prompt = f"""
-Create a very simple Instagram caption (one short sentence),
-include two emojis related to the quote:
-"{quote}"
-Add ONLY 3 simple hashtags.
+Create a very simple Instagram caption.
+One short sentence.
+Use 2 relevant emojis.
+Add only 3 hashtags.
+
+Quote: "{quote}"
 """
     return model.generate_content(prompt).text.strip()
 
@@ -123,22 +117,26 @@ else:
     cl.login(USERNAME, PASSWORD)
     cl.dump_settings(SESSION_FILE)
 
-# ---------- Fetch One Unused Quote ----------
-cur.execute("SELECT id, quote, author FROM quotes WHERE used=0 LIMIT 1")
-post = cur.fetchone()
 
-if post:
-    qid, quote, author = post
+cur.execute(
+    "SELECT id, quote, author FROM quotes WHERE used=0 LIMIT ?",
+    (POSTS_PER_DAY,)
+)
+posts = cur.fetchall()
 
-    image_name = "post.jpg"
-    generate_image(quote, author, image_name)
+for i, (qid, quote, author) in enumerate(posts, start=1):
+    image_name = f"post_{i}.jpg"
+    create_image(quote, author, image_name)
+
     caption = generate_caption(quote)
-
     cl.photo_upload(image_name, caption)
 
     cur.execute("UPDATE quotes SET used=1 WHERE id=?", (qid,))
     conn.commit()
 
-    print("Posted:", quote, "-", author)
+    print(f"✅ Posted {i}/3")
+
+    if i < POSTS_PER_DAY:
+        time.sleep(DELAY_BETWEEN_POSTS)
 
 conn.close()

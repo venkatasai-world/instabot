@@ -2,7 +2,7 @@ name: Daily Instagram Bot
 
 on:
   schedule:
-    - cron: "30 15 * * *"   # runs once daily at 8:30 PM IST
+    - cron: "30 15 * * *"  # 9:00 PM IST ✅
   workflow_dispatch:      # allows manual run
 
 jobs:

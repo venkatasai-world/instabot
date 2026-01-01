@@ -1,11 +1,10 @@
-🚀✨ Instagram Automation Journey ✨🚀  
+##🚀✨ Instagram Automation Journey ✨🚀  
 
 Consistency was always my dream — automation made it real.
 
 I built a fully automated system that posts **one meaningful quote every single day**, completely hands-free. From generating quotes to designing images, writing captions, logging in, and posting — everything runs automatically without manual effort.
 
 
-<img src="post.jpg" height="300" widith="200">
 
 
 The system intelligently avoids duplicate quotes using an SQLite database, generates aesthetic quote images, creates engaging captions and hashtags using Gemini AI, and schedules daily posting through GitHub Actions with automatic Instagram login.
@@ -13,7 +12,8 @@ The system intelligently avoids duplicate quotes using an SQLite database, gener
 ✨ OUTPUT PREVIEW — Auto-Generated Instagram Post ✨
 
 
-::contentReference[oaicite:1]{index=1}
+<img src="post.jpg" height="300" width="200" style="display:block; margin: 0 auto;">
+
 
 
 Every post you see above is automatically created — the quote, the image design, the caption, and the hashtags — then posted directly to Instagram without human intervention.
